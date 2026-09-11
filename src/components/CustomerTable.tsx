@@ -14,6 +14,7 @@ interface CustomerTableProps {
 const STATUS_TABS: { key: StatusFilter; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'approved', label: 'Approved' },
+  { key: 'complete', label: 'Complete' },
   { key: 'pending', label: 'Pending' },
   { key: 'closed', label: 'Closed' },
   { key: 'unlinked', label: 'Unlinked' },
@@ -23,6 +24,7 @@ const PAGE_SIZE = 25;
 
 const STATUS_STYLES: Record<Customer['status'], string> = {
   approved: 'bg-green-50 text-green-700',
+  complete: 'bg-blue-50 text-blue-700',
   pending: 'bg-amber-50 text-amber-700',
   closed: 'bg-gray-100 text-gray-500',
   unlinked: 'bg-gray-50 text-gray-400',
