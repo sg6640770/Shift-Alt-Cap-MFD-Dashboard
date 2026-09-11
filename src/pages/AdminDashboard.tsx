@@ -534,8 +534,9 @@ function partnerCodeForId(partnerId: unknown, partners: Partner[]): string | nul
 function normalizeCustomerStatus(status: string | null): Customer['status'] {
   switch (status) {
     case 'KYC_APPROVED':
-    case 'COMPLETE':
       return 'approved';
+    case 'COMPLETE':
+      return 'complete';
     case 'CLOSED':
       return 'closed';
     case 'KYC_DENIED':
