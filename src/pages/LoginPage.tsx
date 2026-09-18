@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TrendingUp, Mail, Lock, Loader2 } from 'lucide-react';
+import { Mail, Lock, Building2, Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 export function LoginPage() {
@@ -9,6 +9,7 @@ export function LoginPage() {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [partnerCode, setPartnerCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -26,7 +27,11 @@ export function LoginPage() {
         navigate('/', { replace: true });
       }
     } else {
-      const { error: err } = await signUp(email, password);
+      // partnerCode is sent as-is (trimmed to null when blank). Whether it's
+      // actually required depends on whether this becomes the first (admin)
+      // account or a later (partner) one — that can only be decided server-side,
+      // so we don't block submission here even if it's empty.
+      const { error: err } = await signUp(email, password, partnerCode.trim() || null);
       if (err) {
         setError(err);
         setLoading(false);
@@ -36,22 +41,21 @@ export function LoginPage() {
         setMode('signin');
         setEmail('');
         setPassword('');
-        alert('Account created! The first account is automatically an admin. Please sign in.');
+        setPartnerCode('');
+        alert('Account created successfully! Please sign in.');
       }
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-amber-50/40 px-4">
       <div className="w-full max-w-md">
         <div className="flex items-center justify-center gap-2 mb-8">
-          <div className="w-10 h-10 rounded-lg bg-teal-600 flex items-center justify-center">
-            <TrendingUp className="w-5 h-5 text-white" />
-          </div>
-          <span className="text-xl font-bold text-gray-900">MFD Dashboard</span>
+          <img src="/brain.png" alt="BrainTree Capital" className="w-10 h-10 rounded-full object-cover" />
+          <span className="text-xl font-bold text-gray-900">BrainTree Capital</span>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+        <div className="bg-white rounded-xl shadow-sm border border-amber-100 p-8">
           <h1 className="text-lg font-semibold text-gray-900 mb-1">
             {mode === 'signin' ? 'Sign in to your account' : 'Create a new account'}
           </h1>
@@ -77,7 +81,7 @@ export function LoginPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-3 py-2.5 text-sm rounded-lg border border-gray-300 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none transition-colors"
+                  className="w-full pl-10 pr-3 py-2.5 text-sm rounded-lg border border-gray-300 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition-colors"
                   placeholder="you@example.com"
                 />
               </div>
@@ -93,16 +97,37 @@ export function LoginPage() {
                   minLength={6}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-3 py-2.5 text-sm rounded-lg border border-gray-300 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none transition-colors"
+                  className="w-full pl-10 pr-3 py-2.5 text-sm rounded-lg border border-gray-300 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition-colors"
                   placeholder="••••••••"
                 />
               </div>
             </div>
 
+            {mode === 'signup' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Partner Code
+                  <span className="ml-1.5 text-xs font-normal text-gray-400">
+                    (optional for the first account, required otherwise)
+                  </span>
+                </label>
+                <div className="relative">
+                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={partnerCode}
+                    onChange={(e) => setPartnerCode(e.target.value.toUpperCase())}
+                    className="w-full pl-10 pr-3 py-2.5 text-sm rounded-lg border border-gray-300 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition-colors"
+                    placeholder="e.g. SHIFTALTCAP"
+                  />
+                </div>
+              </div>
+            )}
+
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 text-sm font-medium text-white bg-teal-600 rounded-lg hover:bg-teal-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
+              className="w-full py-2.5 text-sm font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               {mode === 'signin' ? 'Sign In' : 'Create Account'}
@@ -115,7 +140,7 @@ export function LoginPage() {
                 Don&apos;t have an account?{' '}
                 <button
                   onClick={() => { setMode('signup'); setError(null); }}
-                  className="text-teal-600 hover:text-teal-700 font-medium"
+                  className="text-amber-600 hover:text-amber-700 font-medium"
                 >
                   Sign up
                 </button>
@@ -125,7 +150,7 @@ export function LoginPage() {
                 Already have an account?{' '}
                 <button
                   onClick={() => { setMode('signin'); setError(null); }}
-                  className="text-teal-600 hover:text-teal-700 font-medium"
+                  className="text-amber-600 hover:text-amber-700 font-medium"
                 >
                   Sign in
                 </button>
