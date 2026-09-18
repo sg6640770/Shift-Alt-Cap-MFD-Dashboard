@@ -66,9 +66,10 @@ export function AdminDashboard() {
   // customers / vw_dashboard_summary are keyed by partner_code (text), not by
   // partners.id (uuid) -- the selector gives us the uuid, so look up the
   // matching code once here and filter by that everywhere below.
+  // NOTE: the partners table's real column is `partner_code`, not `code`.
   const selectedPartnerCode = useMemo(() => {
     if (!selectedPartnerId) return null;
-    return partners.find((p) => p.id === selectedPartnerId)?.code ?? null;
+    return partners.find((p) => p.id === selectedPartnerId)?.partner_code ?? null;
   }, [selectedPartnerId, partners]);
 
   // Load partners list
@@ -147,48 +148,49 @@ export function AdminDashboard() {
   }, [selectedPartnerCode, loadSummary]);
 
   // Load customer records from Supabase.
-useEffect(() => {
-  setCustomersLoading(true);
-  (async () => {
-    let customerQuery = supabase.from('customers').select('*');
-    if (selectedPartnerCode) {
-      customerQuery = customerQuery.eq('partner_code', selectedPartnerCode);
-    }
-    const { data, error } = await customerQuery;
+  useEffect(() => {
+    setCustomersLoading(true);
+    (async () => {
+      let customerQuery = supabase.from('customers').select('*');
+      if (selectedPartnerCode) {
+        customerQuery = customerQuery.eq('partner_code', selectedPartnerCode);
+      }
+      const { data, error } = await customerQuery;
 
-    if (error) {
-      console.error('customers:', error.message);
-      setCustomers([]);
+      if (error) {
+        console.error('customers:', error.message);
+        setCustomers([]);
+        setCustomersLoading(false);
+        return;
+      }
+
+      const mappedCustomers: Customer[] = ((data ?? []) as CustomerSourceRow[]).map((row) => {
+        const name = stringValue(row.name) ?? stringValue(row.full_name);
+        const email = stringValue(row.email) ?? stringValue(row.email_address) ?? stringValue(row.user_name);
+        const createdAt = stringValue(row.created_at) ?? stringValue(row.source_created_at);
+
+        return {
+          id: stringValue(row.id) ?? stringValue(row.cust_id) ?? crypto.randomUUID(),
+          partner_code: stringValue(row.partner_code) ?? partnerCodeForId(row.partner_id, partners),
+          rm_id: stringValue(row.rm_id) ?? stringValue(row.relationship_manager_id) ?? null,
+          name: name && name !== '--' ? name : stringValue(row.user_name) ?? 'Unknown customer',
+          email: email && email !== '--' ? email : null,
+          phone: stringValue(row.phone) ?? stringValue(row.phone_num),
+          account_number: stringValue(row.account_number) ?? stringValue(row.account_num) ?? '—',
+          status: normalizeCustomerStatus(stringValue(row.status)),
+          total_invested: numberValue(row.total_invested),
+          current_value: numberValue(row.current_value),
+          created_at: createdAt,
+          relationship_managers: null,
+        };
+      });
+
+      mappedCustomers.sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime());
+      setCustomers(mappedCustomers);
       setCustomersLoading(false);
-      return;
-    }
+    })();
+  }, [partners, selectedPartnerCode]);
 
-    const mappedCustomers: Customer[] = ((data ?? []) as CustomerSourceRow[]).map((row) => {
-      const name = stringValue(row.name) ?? stringValue(row.full_name);
-      const email = stringValue(row.email) ?? stringValue(row.email_address) ?? stringValue(row.user_name);
-      const createdAt = stringValue(row.created_at) ?? stringValue(row.source_created_at);
-
-      return {
-        id: stringValue(row.id) ?? stringValue(row.cust_id) ?? crypto.randomUUID(),
-        partner_code: stringValue(row.partner_code) ?? partnerCodeForId(row.partner_id, partners),
-        rm_id: stringValue(row.rm_id) ?? stringValue(row.relationship_manager_id) ?? null,
-        name: name && name !== '--' ? name : stringValue(row.user_name) ?? 'Unknown customer',
-        email: email && email !== '--' ? email : null,
-        phone: stringValue(row.phone) ?? stringValue(row.phone_num),
-        account_number: stringValue(row.account_number) ?? stringValue(row.account_num) ?? '—',
-        status: normalizeCustomerStatus(stringValue(row.status)),
-        total_invested: numberValue(row.total_invested),
-        current_value: numberValue(row.current_value),
-        created_at: createdAt,
-        relationship_managers: null,
-      };
-    });
-
-    mappedCustomers.sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime());
-    setCustomers(mappedCustomers);
-    setCustomersLoading(false);
-  })();
-}, [partners, selectedPartnerCode]);
   // Load RMs.
   // NOTE: relationship_managers uses full_name (not name) and partner_code
   // (not partner_id) -- mapped below to match the RelationshipManager type.
@@ -352,11 +354,9 @@ useEffect(() => {
       <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2 shrink-0">
-            <div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center">
-              <TrendingUp className="w-4 h-4 text-white" />
-            </div>
-            <span className="text-base font-bold text-gray-900 hidden sm:inline">MFD Dashboard</span>
-            <span className="ml-1 px-2 py-0.5 text-xs font-medium bg-teal-50 text-teal-700 rounded-full">
+            <img src="/brain.png" alt="BrainTree Capital" className="w-8 h-8 rounded-full object-cover" />
+            <span className="text-base font-bold text-gray-900 hidden sm:inline">BrainTree Capital</span>
+            <span className="ml-1 px-2 py-0.5 text-xs font-medium bg-amber-50 text-amber-700 rounded-full">
               Admin
             </span>
           </div>
@@ -424,7 +424,7 @@ useEffect(() => {
                       className={[
                         'px-2 py-0.5 text-xs font-medium rounded transition-colors',
                         newInvestorWindow === d
-                          ? 'bg-white text-teal-700 shadow-sm'
+                          ? 'bg-white text-amber-700 shadow-sm'
                           : 'text-gray-500 hover:text-gray-700',
                       ].join(' ')}
                     >
@@ -513,7 +513,6 @@ useEffect(() => {
 }
 
 function stringValue(value: unknown): string | null {
-  // treat "", "--" -isn't stripped here on purpose (handled per-field above) - just guard empty/undefined
   return typeof value === 'string' && value.trim().length > 0 ? value : null;
 }
 
@@ -526,9 +525,10 @@ function numberValue(value: unknown): number | null {
   return null;
 }
 
+// NOTE: the partners table's real column is `partner_code`, not `code`.
 function partnerCodeForId(partnerId: unknown, partners: Partner[]): string | null {
   const id = stringValue(partnerId);
-  return id ? partners.find((partner) => partner.id === id)?.code ?? null : null;
+  return id ? partners.find((partner) => partner.id === id)?.partner_code ?? null : null;
 }
 
 function normalizeCustomerStatus(status: string | null): Customer['status'] {
@@ -540,7 +540,6 @@ function normalizeCustomerStatus(status: string | null): Customer['status'] {
     case 'CLOSED':
       return 'closed';
     case 'KYC_DENIED':
-      // account was actively rejected - closer to "closed" than "still pending"
       return 'closed';
     case 'DOCUMENTS':
     case 'PERSONAL_DETAILS':
@@ -554,10 +553,8 @@ function normalizeCustomerStatus(status: string | null): Customer['status'] {
       return status ? 'pending' : 'unlinked';
   }
 }
+
 function formatCurrency(amount: number, fractionDigits: number = 0): string {
-  // NOTE: 'en-IN' groups digits Indian-style (e.g. $18,50,623) once past 1 lakh,
-  // which doesn't match the "$1,850,622.59" Western grouping requested for the
-  // dashboard, so this uses 'en-US' instead.
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
