@@ -8,8 +8,10 @@ interface AuthState {
   profile: Profile | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
-  signUp: (email: string, password: string) => Promise<{ error: string | null }>;
+  signUp: (email: string, password: string, partnerCode: string | null) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<{ error: string | null }>;
+  updatePassword: (newPassword: string) => Promise<{ error: string | null }>;
 }
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
@@ -79,16 +81,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setSession(data.session);
     const nextProfile = await fetchProfile(data.session.user.id);
+
+    if (!nextProfile) {
+      // Don't leave the app in a half-authenticated state with a session
+      // but no profile/role to authorize anything against.
+      await supabase.auth.signOut();
+      setSession(null);
+      setProfile(null);
+      setLoading(false);
+      return { error: 'Your account does not have a profile yet. Please contact an administrator.' };
+    }
+
     setProfile(nextProfile);
     setLoading(false);
-
-    return {
-      error: nextProfile ? null : 'Your account does not have a profile yet. Please contact an administrator.',
-    };
+    return { error: null };
   }, [fetchProfile]);
 
-  const signUp = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({ email, password });
+  const signUp = useCallback(async (email: string, password: string, partnerCode: string | null) => {
+    if (partnerCode) {
+      const { data: partner, error: partnerErr } = await supabase
+        .from('partners')
+        .select('id')
+        .eq('partner_code', partnerCode)
+        .maybeSingle();
+
+      if (partnerErr || !partner) {
+        return { error: 'Invalid partner code.' };
+      }
+    }
+
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { partner_code: partnerCode },
+      },
+    });
+
     return { error: error?.message ?? null };
   }, []);
 
@@ -98,8 +127,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
   }, []);
 
+  const resetPassword = useCallback(async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    return { error: error?.message ?? null };
+  }, []);
+
+  const updatePassword = useCallback(async (newPassword: string) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    return { error: error?.message ?? null };
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ session, profile, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider
+      value={{ session, profile, loading, signIn, signUp, signOut, resetPassword, updatePassword }}
+    >
       {children}
     </AuthContext.Provider>
   );
